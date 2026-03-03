@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TITAN ERP">
 <title>TITAN ERP</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root{--bg:#181825;--surface:#1E1E2E;--surface2:#24273A;--border:#313244;--text:#CDD6F4;--muted:#A6ADC8;--orange:#FAB387;--red:#F38BA8;--green:#A6E3A1;--yellow:#F9E2AF;--blue:#89B4FA;--purple:#CBA6F7}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -255,11 +255,11 @@ header h2{font-size:15px;flex:1;font-weight:800}
 <!-- BARKOD MODAL -->
 <div class="barkod-modal" id="barkod-modal">
   <div id="barkod-video-kapsayici">
-    <div id="interactive"></div>
+    <div id="qr-reader"></div>
     <div class="barkod-cerceve"><div class="barkod-tarama"></div></div>
   </div>
   <div class="barkod-alti">
-    <p>📷 Barkodu çerçeve içine getirin</p>
+    <p>📷 Barkodu veya QR kodu çerçeve içine getirin</p>
     <div id="barkod-sonuc">Bekleniyor...</div>
     <div class="btn-grup">
       <button class="btn-ghost" onclick="barkodKapat()">✕ İptal</button>
@@ -462,61 +462,65 @@ function barkodManuelGiris(barkod){
   if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
 }
 
-// ── RESİMDEN BARKOD OKU ──
+// ── RESİMDEN BARKOD OKU (html5-qrcode) ──
 function resimdenOku(input){
   const dosya=input.files[0]; if(!dosya)return;
-  const url=URL.createObjectURL(dosya);
   toast('🔍 Resim okunuyor...');
-  Quagga.decodeSingle({
-    src:url,
-    numOfWorkers:0,
-    inputStream:{size:1920},
-    decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader','i2of5_reader','2of5_reader','code_93_reader']}
-  },result=>{
-    URL.revokeObjectURL(url);
+  // Geçici div oluştur
+  let tmpDiv=document.getElementById('qr-resim-tmp');
+  if(!tmpDiv){tmpDiv=document.createElement('div');tmpDiv.id='qr-resim-tmp';tmpDiv.style.display='none';document.body.appendChild(tmpDiv);}
+  const okuyucu=new Html5Qrcode('qr-resim-tmp');
+  okuyucu.scanFile(dosya,true).then(kod=>{
     input.value='';
-    if(result&&result.codeResult){
-      const kod=result.codeResult.code;
-      document.getElementById('y-barkod').value=kod;
-      const kg=kiloHesapla(kod);
-      if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
-      toast('✅ Barkod okundu: '+kod);
-    } else {
-      toast('❌ Barkod bulunamadı, farklı bir resim deneyin.',true);
-    }
-  });
-}
-
-// ── BARKOD OKUYUCU ──
-function barkodAc(hedef){
-  barkodHedef=hedef;sonBarkod='';
-  const sr=document.getElementById('barkod-sonuc');
-  sr.textContent='Bekleniyor...';sr.className='';
-  document.getElementById('btn-onayla').disabled=true;
-  document.getElementById('barkod-modal').classList.add('acik');
-  Quagga.init({
-    inputStream:{type:'LiveStream',target:document.getElementById('interactive'),
-      constraints:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}},
-    decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader']},
-    locate:true
-  },err=>{
-    if(err){toast('Kamera açılamadı!',true);barkodKapat();return}
-    Quagga.start();
-  });
-  Quagga.onDetected(algilandi);
-}
-
-function algilandi(r){
-  const kod=r.codeResult.code;
-  if(kod&&kod!==sonBarkod){
-    sonBarkod=kod;
-    const sr=document.getElementById('barkod-sonuc');
-    sr.textContent=kod;sr.className='algilandi';
-    document.getElementById('btn-onayla').disabled=false;
+    document.getElementById('y-barkod').value=kod;
     const kg=kiloHesapla(kod);
     if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
-    navigator.vibrate&&navigator.vibrate(150);
-  }
+    toast('✅ Okundu: '+kod);
+    okuyucu.clear().catch(()=>{});
+  }).catch(()=>{
+    input.value='';
+    toast('❌ Barkod okunamadı, farklı resim deneyin.',true);
+    okuyucu.clear().catch(()=>{});
+  });
+}
+
+// ── KAMERA BARKOD OKUYUCU (html5-qrcode) ──
+let html5QrScanner=null;
+
+function barkodAc(hedef){
+  barkodHedef=hedef; sonBarkod='';
+  const sr=document.getElementById('barkod-sonuc');
+  sr.textContent='Bekleniyor...'; sr.className='';
+  document.getElementById('btn-onayla').disabled=true;
+  document.getElementById('barkod-modal').classList.add('acik');
+
+  html5QrScanner=new Html5Qrcode('qr-reader');
+  const formatlar=[
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.DATA_MATRIX,
+    Html5QrcodeSupportedFormats.PDF_417,
+  ];
+  html5QrScanner.start(
+    {facingMode:'environment'},
+    {fps:10, qrbox:{width:250,height:100}, formatsToSupport:formatlar},
+    (kod)=>{
+      if(kod&&kod!==sonBarkod){
+        sonBarkod=kod;
+        sr.textContent=kod; sr.className='algilandi';
+        document.getElementById('btn-onayla').disabled=false;
+        const kg=kiloHesapla(kod);
+        if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
+        navigator.vibrate&&navigator.vibrate(150);
+      }
+    },
+    ()=>{}
+  ).catch(()=>{toast('Kamera açılamadı!',true);barkodKapat()});
 }
 
 function barkodOnayla(){
@@ -525,10 +529,16 @@ function barkodOnayla(){
   barkodKapat();
   toast('✅ Barkod okundu!');
 }
+
 function barkodKapat(){
-  try{Quagga.offDetected(algilandi);Quagga.stop();}catch(e){}
+  if(html5QrScanner){
+    html5QrScanner.stop().then(()=>{
+      html5QrScanner.clear();
+      html5QrScanner=null;
+    }).catch(()=>{html5QrScanner=null;});
+  }
   document.getElementById('barkod-modal').classList.remove('acik');
-  document.getElementById('interactive').innerHTML='';
+  document.getElementById('qr-reader').innerHTML='';
 }
 
 // ── YENİ KAYIT ──
