@@ -12,6 +12,20 @@
 :root{--bg:#181825;--surface:#1E1E2E;--surface2:#24273A;--border:#313244;--text:#CDD6F4;--muted:#A6ADC8;--orange:#FAB387;--red:#F38BA8;--green:#A6E3A1;--yellow:#F9E2AF;--blue:#89B4FA;--purple:#CBA6F7}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;overflow-x:hidden}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .5s ease;pointer-events:none}
+#splash.gizle{opacity:0}
+#splash.gizle-tamamen{display:none}
+.splash-kedi{font-size:90px;animation:kedi-ziplama 1s ease-in-out infinite alternate}
+@keyframes kedi-ziplama{0%{transform:translateY(0) rotate(-3deg)}100%{transform:translateY(-14px) rotate(3deg)}}
+.splash-logo{font-size:28px;font-weight:900;letter-spacing:2px;color:var(--orange);margin-top:20px}
+.splash-versiyon{font-size:16px;font-weight:700;color:var(--muted);margin-top:6px;letter-spacing:1px}
+.splash-alt{font-size:12px;color:var(--border);margin-top:32px;letter-spacing:2px;text-transform:uppercase}
+.splash-bar-wrap{width:180px;height:4px;background:var(--border);border-radius:20px;margin-top:12px;overflow:hidden}
+.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--orange),var(--purple));border-radius:20px;animation:yukleniyor 1.8s ease forwards}
+@keyframes yukleniyor{0%{width:0%}60%{width:70%}100%{width:100%}}
+
 #giris-ekrani{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:24px}
 .giris-kart{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:36px 28px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px}
 .giris-kart .logo{font-size:52px;text-align:center}
@@ -99,6 +113,15 @@ header h2{font-size:15px;flex:1;font-weight:800}
 </head>
 <body>
 
+<!-- SPLASH EKRANI -->
+<div id="splash">
+  <div class="splash-kedi">🐱</div>
+  <div class="splash-logo">TITAN ERP</div>
+  <div class="splash-versiyon">v14.0 · Sütlaç</div>
+  <div class="splash-alt">Et & Tavuk Takip Sistemi</div>
+  <div class="splash-bar-wrap"><div class="splash-bar"></div></div>
+</div>
+
 <div id="giris-ekrani">
   <div class="giris-kart">
     <div class="logo">☁️🔒</div>
@@ -151,11 +174,13 @@ header h2{font-size:15px;flex:1;font-weight:800}
       <div class="form-grup">
         <div>
           <label>Barkod Numarası</label>
-          <div style="display:flex;gap:8px">
-            <input id="y-barkod" type="text" placeholder="Barkodu girin veya okutun..." style="flex:1" oninput="barkodManuelGiris(this.value)">
-            <button class="btn-purple" style="width:auto;padding:12px 14px;font-size:18px;flex-shrink:0" onclick="barkodAc('yeni')" title="Kamera ile Oku">📷</button>
+          <input id="y-barkod" type="text" placeholder="Barkodu girin veya okutun..." oninput="barkodManuelGiris(this.value)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <button class="btn-purple" style="padding:10px;font-size:13px" onclick="barkodAc('yeni')">📷 Kamera</button>
+            <button class="btn-blue" style="padding:10px;font-size:13px" onclick="document.getElementById('resim-input').click()">🖼 Resim Yükle</button>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">📝 Manuel yazabilir veya 📷 kamerayla okutabilirsiniz</div>
+          <input type="file" id="resim-input" accept="image/*" style="display:none" onchange="resimdenOku(this)">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">📝 Manuel, 📷 kamera veya 🖼 resim yükleyerek barkod okuyabilirsiniz</div>
         </div>
         <div><label>Kategori</label>
           <select id="y-kat"><option value="Et">🥩 Et</option><option value="Tavuk">🍗 Tavuk</option></select>
@@ -418,15 +443,48 @@ function sil(){
     .catch(e=>toast('Hata: '+e,true));
 }
 
-// ── MANUEL BARKOD GİRİŞİ ──
-function barkodManuelGiris(barkod){
+// ── BARKODDAN KİLO HESAPLA (orijinal masaüstü mantığı) ──
+// barkod[8:10] → tam kısım, barkod[10:12] → ondalık, barkod[12]>5 → +0.01
+function kiloHesapla(barkod){
   if(barkod.length>=12){
     try{
-      let kg=parseFloat(`${barkod.substring(8,10)}.${barkod.substring(10,12)}`);
-      if(barkod.length>=13&&parseInt(barkod[12])>5)kg+=0.01;
-      document.getElementById('y-miktar').value=kg.toFixed(2);
+      let kg=parseFloat(barkod.substring(8,10)+"."+barkod.substring(10,12));
+      if(barkod.length>=13&&parseInt(barkod[12])>5) kg+=0.01;
+      if(!isNaN(kg)&&kg>0) return kg;
     }catch(e){}
   }
+  return null;
+}
+
+// ── MANUEL BARKOD GİRİŞİ ──
+function barkodManuelGiris(barkod){
+  const kg=kiloHesapla(barkod.trim());
+  if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
+}
+
+// ── RESİMDEN BARKOD OKU ──
+function resimdenOku(input){
+  const dosya=input.files[0]; if(!dosya)return;
+  const url=URL.createObjectURL(dosya);
+  toast('🔍 Resim okunuyor...');
+  Quagga.decodeSingle({
+    src:url,
+    numOfWorkers:0,
+    inputStream:{size:1920},
+    decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader','i2of5_reader','2of5_reader','code_93_reader']}
+  },result=>{
+    URL.revokeObjectURL(url);
+    input.value='';
+    if(result&&result.codeResult){
+      const kod=result.codeResult.code;
+      document.getElementById('y-barkod').value=kod;
+      const kg=kiloHesapla(kod);
+      if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
+      toast('✅ Barkod okundu: '+kod);
+    } else {
+      toast('❌ Barkod bulunamadı, farklı bir resim deneyin.',true);
+    }
+  });
 }
 
 // ── BARKOD OKUYUCU ──
@@ -455,14 +513,8 @@ function algilandi(r){
     const sr=document.getElementById('barkod-sonuc');
     sr.textContent=kod;sr.className='algilandi';
     document.getElementById('btn-onayla').disabled=false;
-    // Barkoddan kilo hesapla
-    if(kod.length>=12){
-      try{
-        let kg=parseFloat(`${kod.substring(8,10)}.${kod.substring(10,12)}`);
-        if(kod.length>=13&&parseInt(kod[12])>5)kg+=0.01;
-        document.getElementById('y-miktar').value=kg.toFixed(2);
-      }catch(e){}
-    }
+    const kg=kiloHesapla(kod);
+    if(kg!==null) document.getElementById('y-miktar').value=kg.toFixed(2);
     navigator.vibrate&&navigator.vibrate(150);
   }
 }
@@ -506,6 +558,13 @@ function tab(id,btn){
 }
 
 window.addEventListener('load',()=>{
+  // Splash ekranı
+  setTimeout(()=>{
+    const s=document.getElementById('splash');
+    s.classList.add('gizle');
+    setTimeout(()=>s.classList.add('gizle-tamamen'),500);
+  },2000);
+
   const sa=localStorage.getItem('titan_api'),st=localStorage.getItem('titan_token');
   if(sa)document.getElementById('api-url').value=sa;
   if(st){API=sa;TOKEN=st;
