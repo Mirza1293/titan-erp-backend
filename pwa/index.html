@@ -152,9 +152,10 @@ header h2{font-size:15px;flex:1;font-weight:800}
         <div>
           <label>Barkod Numarası</label>
           <div style="display:flex;gap:8px">
-            <input id="y-barkod" type="text" placeholder="Barkodu girin veya okutun..." style="flex:1">
-            <button class="btn-purple" style="width:auto;padding:12px 14px;font-size:18px;flex-shrink:0" onclick="barkodAc('yeni')">📷</button>
+            <input id="y-barkod" type="text" placeholder="Barkodu girin veya okutun..." style="flex:1" oninput="barkodManuelGiris(this.value)">
+            <button class="btn-purple" style="width:auto;padding:12px 14px;font-size:18px;flex-shrink:0" onclick="barkodAc('yeni')" title="Kamera ile Oku">📷</button>
           </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">📝 Manuel yazabilir veya 📷 kamerayla okutabilirsiniz</div>
         </div>
         <div><label>Kategori</label>
           <select id="y-kat"><option value="Et">🥩 Et</option><option value="Tavuk">🍗 Tavuk</option></select>
@@ -415,6 +416,17 @@ function sil(){
   req(`/api/urunler/${aktifId}`,'DELETE')
     .then(()=>{toast('🗑 Silindi.');document.getElementById('modal-overlay').classList.remove('acik');yukle()})
     .catch(e=>toast('Hata: '+e,true));
+}
+
+// ── MANUEL BARKOD GİRİŞİ ──
+function barkodManuelGiris(barkod){
+  if(barkod.length>=12){
+    try{
+      let kg=parseFloat(`${barkod.substring(8,10)}.${barkod.substring(10,12)}`);
+      if(barkod.length>=13&&parseInt(barkod[12])>5)kg+=0.01;
+      document.getElementById('y-miktar').value=kg.toFixed(2);
+    }catch(e){}
+  }
 }
 
 // ── BARKOD OKUYUCU ──
