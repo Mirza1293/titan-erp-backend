@@ -269,9 +269,17 @@ header h2{font-size:15px;flex:1;font-weight:800}
     <input type="hidden" id="m-id">
     <div class="form-grup">
       <div><label>Kullanım Tarihi</label><input id="m-kul" type="date"></div>
-      <div><label>Tekrar Kullanım Tarihi</label><input id="m-tek" type="date"></div>
-      <div><label>Harcanan (DÜŞ) — kg</label><input id="m-har" type="number" step="0.01" min="0" placeholder="0.00"></div>
-      <div><label>Kalan Miktar — kg</label><input id="m-kal" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div style="background:rgba(243,139,168,.08);border:1px solid rgba(243,139,168,.3);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:12px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.5px">🛁 Tekrar Kullanım (Küvet)</div>
+        <div><label>Küvet Tarihi</label><input id="m-kuvet-tar" type="date"></div>
+        <div><label>Küvet Harcanan (DÜŞ) — kg</label><input id="m-kuvet-kg" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      </div>
+      <div style="background:rgba(137,180,250,.08);border:1px solid rgba(137,180,250,.3);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:12px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.5px">🪵 Tekrar Kullanım (Takoz)</div>
+        <div><label>Takoz Tarihi</label><input id="m-takoz-tar" type="date"></div>
+        <div><label>Takoz Harcanan (DÜŞ) — kg</label><input id="m-takoz-kg" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      </div>
+      <div><label>Kalan Miktar — kg (manuel)</label><input id="m-kal" type="number" step="0.01" min="0" placeholder="0.00"></div>
     </div>
     <div class="btn-grup">
       <button class="btn-ghost" onclick="modalKapat()">İptal</button>
@@ -446,6 +454,7 @@ function analizHesapla(){
       else if(ilk>=38&&ilk<=42){kVeri[g].a40++;kVeri[g].k40+=ilk}
       else{kVeri[g].ad++;kVeri[g].kd+=ilk}
     }
+    // Kullanım tarihi tüketimi
     if(tuk>0&&u.kullanim_tarihi&&u.kullanim_tarihi!=='-'){
       const t=u.kullanim_tarihi;const[d,m,y]=t.split('.');
       const dt=new Date(+y,m-1,+d);
@@ -455,6 +464,30 @@ function analizHesapla(){
       if(!hVeri[hk])hVeri[hk]={Et:0,Tavuk:0};
       if(!aVeri[ak])aVeri[ak]={Et:0,Tavuk:0};
       gVeri[t][kat]+=tuk;hVeri[hk][kat]+=tuk;aVeri[ak][kat]+=tuk;
+    }
+    // Küvet tüketimi
+    const kuvetKg=u.kuvet_miktar||0;
+    if(kuvetKg>0&&u.kuvet_kullanim_tarihi&&u.kuvet_kullanim_tarihi!=='-'){
+      const t=u.kuvet_kullanim_tarihi;const[d,m,y]=t.split('.');
+      const dt=new Date(+y,m-1,+d);
+      const hk=`${y} - ${haftaNo(dt)}. Hafta`;
+      const ak=`${y} - ${m} (${AYLAR[m]||''})`;
+      if(!gVeri[t])gVeri[t]={Et:0,Tavuk:0};
+      if(!hVeri[hk])hVeri[hk]={Et:0,Tavuk:0};
+      if(!aVeri[ak])aVeri[ak]={Et:0,Tavuk:0};
+      gVeri[t][kat]+=kuvetKg;hVeri[hk][kat]+=kuvetKg;aVeri[ak][kat]+=kuvetKg;
+    }
+    // Takoz tüketimi
+    const takozKg=u.takoz_miktar||0;
+    if(takozKg>0&&u.takoz_kullanim_tarihi&&u.takoz_kullanim_tarihi!=='-'){
+      const t=u.takoz_kullanim_tarihi;const[d,m,y]=t.split('.');
+      const dt=new Date(+y,m-1,+d);
+      const hk=`${y} - ${haftaNo(dt)}. Hafta`;
+      const ak=`${y} - ${m} (${AYLAR[m]||''})`;
+      if(!gVeri[t])gVeri[t]={Et:0,Tavuk:0};
+      if(!hVeri[hk])hVeri[hk]={Et:0,Tavuk:0};
+      if(!aVeri[ak])aVeri[ak]={Et:0,Tavuk:0};
+      gVeri[t][kat]+=takozKg;hVeri[hk][kat]+=takozKg;aVeri[ak][kat]+=takozKg;
     }
   });
 
@@ -490,8 +523,10 @@ function modalAc(id){
   document.getElementById('m-id').value=id;
   document.getElementById('m-barkod').textContent='🔖 '+u.barkod;
   document.getElementById('m-kul').value=dmy2iso(u.kullanim_tarihi);
-  document.getElementById('m-tek').value=dmy2iso(u.tekrar_kullanim_tarihi);
-  document.getElementById('m-har').value='';
+  document.getElementById('m-kuvet-tar').value=dmy2iso(u.kuvet_kullanim_tarihi);
+  document.getElementById('m-takoz-tar').value=dmy2iso(u.takoz_kullanim_tarihi);
+  document.getElementById('m-kuvet-kg').value='';
+  document.getElementById('m-takoz-kg').value='';
   document.getElementById('m-kal').value=u.kalan_miktar||'';
   document.getElementById('modal-overlay').classList.add('acik');
 }
@@ -499,13 +534,17 @@ function modalKapat(e){if(!e||e.target===document.getElementById('modal-overlay'
 function guncelle(){
   const p={};
   const kul=document.getElementById('m-kul').value;
-  const tek=document.getElementById('m-tek').value;
-  const har=parseFloat(document.getElementById('m-har').value);
+  const kuvetTar=document.getElementById('m-kuvet-tar').value;
+  const takozTar=document.getElementById('m-takoz-tar').value;
+  const kuvetKg=parseFloat(document.getElementById('m-kuvet-kg').value);
+  const takozKg=parseFloat(document.getElementById('m-takoz-kg').value);
   const kal=parseFloat(document.getElementById('m-kal').value);
-  if(kul)p.kullanim_tarihi=iso2dmy(kul);
-  if(tek)p.tekrar_kullanim_tarihi=iso2dmy(tek);
-  if(!isNaN(har)&&har>0)p.tekrar_miktar=har;
-  else if(!isNaN(kal))p.kalan_miktar=kal;
+  if(kul) p.kullanim_tarihi=iso2dmy(kul);
+  if(kuvetTar) p.kuvet_kullanim_tarihi=iso2dmy(kuvetTar);
+  if(takozTar) p.takoz_kullanim_tarihi=iso2dmy(takozTar);
+  if(!isNaN(kuvetKg)&&kuvetKg>0) p.kuvet_miktar=kuvetKg;
+  if(!isNaN(takozKg)&&takozKg>0) p.takoz_miktar=takozKg;
+  if(!isNaN(kal)&&kal>=0) p.kalan_miktar=kal;
   req(`/api/urunler/${aktifId}`,'PUT',p)
     .then(()=>{toast('✅ Güncellendi!');document.getElementById('modal-overlay').classList.remove('acik');yukle()})
     .catch(e=>toast('Hata: '+e,true));
