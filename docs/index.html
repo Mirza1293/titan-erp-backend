@@ -445,7 +445,7 @@ const AYLAR={'01':'Ocak','02':'Şubat','03':'Mart','04':'Nisan','05':'Mayıs','0
 function analizHesapla(){
   gVeri={};hVeri={};aVeri={};kVeri={};
   urunler.forEach(u=>{
-    const ilk=u.ilk_miktar||0,kal=u.kalan_miktar||0,tuk=ilk-kal,kat=u.kategori;
+    const ilk=u.ilk_miktar||0,kal=u.kalan_miktar||0,kat=u.kategori;
     if(u.gelis_tarihi&&u.gelis_tarihi!=='-'){
       const g=u.gelis_tarihi;
       if(!kVeri[g])kVeri[g]={a15:0,k15:0,a30:0,k30:0,a40:0,k40:0,ad:0,kd:0};
@@ -454,7 +454,8 @@ function analizHesapla(){
       else if(ilk>=38&&ilk<=42){kVeri[g].a40++;kVeri[g].k40+=ilk}
       else{kVeri[g].ad++;kVeri[g].kd+=ilk}
     }
-    // Kullanım tarihi tüketimi
+    // Kullanım tarihi tüketimi (küvet ve takoz hariç)
+    const tuk=Math.max(0,ilk-kal-kuvetKg-takozKg);
     if(tuk>0&&u.kullanim_tarihi&&u.kullanim_tarihi!=='-'){
       const t=u.kullanim_tarihi;const[d,m,y]=t.split('.');
       const dt=new Date(+y,m-1,+d);
