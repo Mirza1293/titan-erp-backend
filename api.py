@@ -1,5 +1,5 @@
 """
-TITAN ERP - FastAPI Backend v14.1 Tofi 🐱
+VAŞAK ERP - FastAPI Backend v15.0 Maviş 🐱
 """
 
 from fastapi import FastAPI, HTTPException, Depends, status
@@ -14,10 +14,10 @@ import jwt
 import datetime
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-SECRET_KEY   = os.environ.get("SECRET_KEY", "titan_gizli_anahtar_2024")
+SECRET_KEY   = os.environ.get("SECRET_KEY", "vasak_gizli_anahtar_2024")
 SIFRE        = os.environ.get("APP_SIFRE", "123456")
 
-app = FastAPI(title="TITAN ERP API", version="1.1.0")
+app = FastAPI(title="VAŞAK ERP API", version="15.0.0")
 security = HTTPBearer()
 
 app.add_middleware(
@@ -112,14 +112,14 @@ class UrunGuncelle(BaseModel):
 
 @app.get("/")
 def root():
-    return {"durum": "TITAN ERP API v14.1 Tofi 🐱"}
+    return {"durum": "VAŞAK ERP API v15.0 Maviş 🐱"}
 
 @app.post("/api/giris")
 def giris_yap(istek: GirisIstegi):
     if istek.sifre != SIFRE:
         raise HTTPException(status_code=401, detail="Hatalı şifre!")
     payload = {
-        "kullanici": "titan_kullanici",
+        "kullanici": "vasak_kullanici",
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=30)
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
